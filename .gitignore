@@ -1,0 +1,16 @@
+# Archivos de compilación
+*.o
+*.out
+*.exe
+*.log
+
+# Binario generado por el make
+renderer
+
+# Archivos temporales
+*.swp
+*~
+.DS_Store
+
+# Directorios
+/build/
