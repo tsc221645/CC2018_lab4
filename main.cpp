@@ -14,15 +14,14 @@ SDL_Window* window = nullptr;
 SDL_Renderer* renderer = nullptr;
 Mesh model;
 
-// Z-buffer para profundidad
+
 std::vector<float> zBuffer;
 
-// Luz direccional en espacio mundo
 glm::vec3 lightDir = glm::normalize(glm::vec3(0.5f, -0.7f, 0.5f));
 
 struct Face {
-    glm::vec3 p0, p1, p2;  // Posiciones en pantalla (x, y, z)
-    glm::vec3 n0, n1, n2;  // Normales por vértice
+    glm::vec3 p0, p1, p2;  
+    glm::vec3 n0, n1, n2;  
     Color baseColor;
 };
 
@@ -36,7 +35,7 @@ void init() {
                               SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     
-    // Inicializar Z-buffer
+
     zBuffer.resize(SCREEN_WIDTH * SCREEN_HEIGHT);
 }
 
@@ -44,11 +43,11 @@ void clearZBuffer() {
     std::fill(zBuffer.begin(), zBuffer.end(), std::numeric_limits<float>::max());
 }
 
-// Función para interpolar normales y calcular iluminación por píxel
+
 void fillTriangleWithShading(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2,
                               const glm::vec3& n0, const glm::vec3& n1, const glm::vec3& n2,
                               const Color& baseColor) {
-    // Bounding box
+
     float minX = std::max(0.0f, std::min({v0.x, v1.x, v2.x}));
     float maxX = std::min((float)SCREEN_WIDTH - 1, std::max({v0.x, v1.x, v2.x}));
     float minY = std::max(0.0f, std::min({v0.y, v1.y, v2.y}));
@@ -58,7 +57,7 @@ void fillTriangleWithShading(const glm::vec3& v0, const glm::vec3& v1, const glm
         for (int x = (int)minX; x <= (int)maxX; x++) {
             glm::vec2 p(x + 0.5f, y + 0.5f);
             
-            // Coordenadas baricéntricas
+
             glm::vec2 v0v1 = glm::vec2(v1.x - v0.x, v1.y - v0.y);
             glm::vec2 v0v2 = glm::vec2(v2.x - v0.x, v2.y - v0.y);
             glm::vec2 v0p = glm::vec2(p.x - v0.x, p.y - v0.y);
@@ -70,30 +69,30 @@ void fillTriangleWithShading(const glm::vec3& v0, const glm::vec3& v1, const glm
             float w2 = (v0v1.x * v0p.y - v0p.x * v0v1.y) / denom;
             float w0 = 1.0f - w1 - w2;
             
-            // Verificar si está dentro del triángulo
+
             if (w0 < 0 || w1 < 0 || w2 < 0) continue;
             
-            // Interpolar profundidad
+
             float z = w0 * v0.z + w1 * v1.z + w2 * v2.z;
             
-            // Z-buffer test
+
             int bufferIndex = y * SCREEN_WIDTH + x;
             if (z >= zBuffer[bufferIndex]) continue;
             zBuffer[bufferIndex] = z;
             
-            // Interpolar normal
+
             glm::vec3 normal = glm::normalize(w0 * n0 + w1 * n1 + w2 * n2);
             
-            // Iluminación difusa
+
             float diffuse = glm::max(glm::dot(normal, -lightDir), 0.0f);
             
-            // Componente ambiental
+
             float ambient = 0.2f;
             
-            // Intensidad final
+
             float intensity = glm::clamp(ambient + diffuse * 0.8f, 0.0f, 1.0f);
             
-            // Aplicar intensidad al color
+
             uint8_t r = (uint8_t)(baseColor.r * intensity);
             uint8_t g = (uint8_t)(baseColor.g * intensity);
             uint8_t b = (uint8_t)(baseColor.b * intensity);
@@ -107,7 +106,6 @@ void render(float angle) {
     clear(Color(20, 20, 40));
     clearZBuffer();
 
-    // Normalizar el modelo
     glm::vec3 minV(1e9f), maxV(-1e9f);
     for (auto& v : model.vertices) {
         minV = glm::min(minV, v);
@@ -118,7 +116,7 @@ void render(float angle) {
     float maxSize = std::max({diff.x, diff.y, diff.z});
     float scale = 2.0f / maxSize;
 
-    // Transformaciones
+
     glm::mat4 modelMat = glm::mat4(1.0f);
     modelMat = glm::rotate(modelMat, glm::radians(angle), glm::vec3(0, 1, 0));
     modelMat = glm::scale(modelMat, glm::vec3(scale));
@@ -138,7 +136,6 @@ void render(float angle) {
     std::vector<Face> faces;
     faces.reserve(model.faces.size());
 
-    // Calcular normales por vértice (promedio de caras adyacentes)
     std::vector<glm::vec3> vertexNormals(model.vertices.size(), glm::vec3(0.0f));
     std::vector<int> normalCounts(model.vertices.size(), 0);
 
@@ -166,7 +163,6 @@ void render(float angle) {
         }
     }
 
-    // Procesar caras
     for (auto& face : model.faces) {
         if (face.size() < 3) continue;
 
@@ -174,22 +170,15 @@ void render(float angle) {
         glm::vec3 m1 = model.vertices[face[1]] - center;
         glm::vec3 m2 = model.vertices[face[2]] - center;
 
-        // Transformar a espacio de vista
         glm::vec3 v0 = glm::vec3(mv * glm::vec4(m0, 1.0f));
         glm::vec3 v1 = glm::vec3(mv * glm::vec4(m1, 1.0f));
         glm::vec3 v2 = glm::vec3(mv * glm::vec4(m2, 1.0f));
 
-        // Backface culling mejorado
-        //glm::vec3 faceNormal = glm::normalize(glm::cross(v1 - v0, v2 - v0));
-        //glm::vec3 viewDir = glm::normalize(-v0); // Dirección hacia la cámara
-        //if (glm::dot(faceNormal, viewDir) <= 0.0f) continue;
-
-        // Transformar normales de vértice
         glm::vec3 n0 = glm::normalize(normalMat * vertexNormals[face[0]]);
         glm::vec3 n1 = glm::normalize(normalMat * vertexNormals[face[1]]);
         glm::vec3 n2 = glm::normalize(normalMat * vertexNormals[face[2]]);
 
-        // Proyección
+
         glm::vec4 c0 = mvp * glm::vec4(m0, 1.0f);
         glm::vec4 c1 = mvp * glm::vec4(m1, 1.0f);
         glm::vec4 c2 = mvp * glm::vec4(m2, 1.0f);
@@ -209,12 +198,12 @@ void render(float angle) {
         f.n0 = n0;
         f.n1 = n1;
         f.n2 = n2;
-        f.baseColor = Color(180, 180, 60); // Color amarillo-verdoso para nave espacial
+        f.baseColor = Color(180, 180, 60); 
         
         faces.push_back(f);
     }
 
-    // Renderizar todas las caras
+
     for (auto& f : faces) {
         fillTriangleWithShading(f.p0, f.p1, f.p2, f.n0, f.n1, f.n2, f.baseColor);
     }
